@@ -21,7 +21,8 @@ public class CalenderUtil {
 
         List<YearEntity> yearEntities = new ArrayList<>();
         int yearNumber = startDate.getYear();
-        while(yearNumber <= yearNumber + numberOfAdditionalYears) {
+        int endYear = yearNumber + numberOfAdditionalYears;
+        while(yearNumber <= endYear) {
 
             var year = new YearEntity();
             year.setCenter(center);
