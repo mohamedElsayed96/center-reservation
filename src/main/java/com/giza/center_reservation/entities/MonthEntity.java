@@ -10,22 +10,16 @@ import java.util.List;
 @Data
 public class MonthEntity {
     @Id
-    private Long id;
+    private long id;
     private String name;
     @ManyToOne
     private Center center;
 
     private int remainingCapacity;
-    @ManyToOne
-    private YearEntity year;
+
+    private int remainingEveningCapacity;
 
     @Column(name = "center_id", insertable = false, updatable = false)
     private int centerId;
-
-    @Column(name = "year_id", insertable = false, updatable = false)
-    private Long yearId;
-
-    @OneToMany(mappedBy = "month", cascade = CascadeType.ALL)
-    private List<DayEntity> days;
 
 }

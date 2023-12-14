@@ -4,6 +4,7 @@ import com.giza.center_reservation.entities.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -13,97 +14,100 @@ import java.util.Set;
 
 @Service
 public class CalenderUtil {
-    @Value("${center_number_of_additional_years}")
-    private int numberOfAdditionalYears;
-    public List<YearEntity> createCalenderForCenter(Center center,
-                                                    Set<LocalDate> nonWorkingDays,
-                                                    LocalDate startDate) {
 
-        List<YearEntity> yearEntities = new ArrayList<>();
-        int yearNumber = startDate.getYear();
-        int endYear = yearNumber + numberOfAdditionalYears;
-        while(yearNumber <= endYear) {
 
-            var year = new YearEntity();
-            year.setCenter(center);
-            year.setRemainingCapacity(center.getMaxCapacity());
+    public List<MonthEntity> createMonths(Center center, LocalDate startDate, LocalDate endDate) {
 
-            year.setName(yearNumber + "");
 
-            var yearId = center.getId() + "" + yearNumber;
 
-            year.setId(Long.parseLong(yearId));
+        List<MonthEntity> months = new ArrayList<>();
 
-            List<MonthEntity> months2023 = new ArrayList<>();
-            for (int monthIndex = startDate.getMonthValue(); monthIndex <= 12; monthIndex++) {
-                MonthEntity month = new MonthEntity();
-                month.setName(getMonthName(monthIndex, yearNumber));
-                month.setRemainingCapacity(year.getRemainingCapacity());
-                month.setCenter(center);
-                var monthId = yearId + String.format("%02d", monthIndex);
-                month.setId(Long.parseLong(monthId));
-                List<DayEntity> daysInMonth = new ArrayList<>();
-                int daysInThisMonth = getDaysInMonth(monthIndex, yearNumber);
-
-                for (int dayIndex = startDate.getDayOfMonth(); dayIndex <= daysInThisMonth; dayIndex++) {
-                    DayEntity day = new DayEntity();
-                    day.setDayOfTheMonth(dayIndex);
-                    day.setName(getDayName(yearNumber, monthIndex, dayIndex));
-                    day.setCenter(center);
-                    day.setRemainingCapacity(month.getRemainingCapacity());
-                    day.setMonth(month);
-                    var dayId = monthId + String.format("%02d", dayIndex);
-                    day.setId(Long.parseLong(dayId));
-                    List<HourEntity> hoursOfTheDay = new ArrayList<>();
-
-                    if (nonWorkingDays.contains(LocalDate.of(yearNumber, monthIndex, dayIndex))) {
-                        day.setRemainingCapacity(-1);
-                    }
-                    var startTime = LocalTime.of(0, 0);
-                    var endTime = LocalTime.of(23, 0);
-                    while (startTime.isBefore(endTime) || startTime.equals(endTime)) {
-                        var hour = new HourEntity();
-                        hour.setTime(startTime);
-                        hour.setDay(day);
-                        hour.setCenter(center);
-                        var hourId = dayId + String.format("%02d", startTime.getHour());
-                        hour.setId(Long.parseLong(hourId));
-
-                        if (day.getRemainingCapacity() < 0) {
-                            hour.setRemainingCapacity(day.getRemainingCapacity());
-                        } else if (isBetween(startTime, center.getStartWorkingHour(), center.getEndWorkingHour())) {
-                            hour.setRemainingCapacity(center.getMaxCapacity());
-                        } else {
-                            hour.setRemainingCapacity(-1);
-                        }
-
-                        hoursOfTheDay.add(hour);
-                        startTime = startTime.plusHours(1);
-                        if (startTime.equals(LocalTime.of(0, 0))) break;
-                    }
-                    day.setWorkingHours(hoursOfTheDay);
-                    daysInMonth.add(day);
-
-                }
-                month.setDays(daysInMonth);
-                month.setYear(year);
-                months2023.add(month);
-            }
-            year.setMonths(months2023);
-            yearEntities.add(year);
-            startDate = LocalDate.of(++yearNumber, 1, 1);
+        for (var start = startDate; start.isBefore(endDate) || start.equals(endDate); start = start.plusMonths(1)) {
+            MonthEntity month = new MonthEntity();
+            var yearId = center.getId() + "" + start.getYear();
+            var monthId = yearId + String.format("%02d", start.getMonthValue());
+            month.setName(getMonthName(start.getMonthValue(), start.getYear()));
+            month.setRemainingCapacity(center.getMaxCapacity());
+            month.setRemainingEveningCapacity(center.getEveningMaxCapacity());
+            month.setCenter(center);
+            month.setId(Long.parseLong(monthId));
+            months.add(month);
         }
-        return yearEntities;
+
+
+        return months;
     }
 
-    private static boolean isBetween(LocalTime timeToCheck, LocalTime startTime, LocalTime endTime) {
-        return !timeToCheck.isBefore(startTime) && !timeToCheck.isAfter(endTime);
+    public List<DayEntity> createDays(Center center, LocalDate startDate, LocalDate endDate) {
+
+        var workingDays = center.getWorkingDays().stream().map(WorkingDay::getName).toList();
+        List<DayEntity> dayEntities = new ArrayList<>();
+        for (var start = startDate; start.isBefore(endDate) || start.equals(endDate); start = start.plusDays(1)) {
+            var yearId = center.getId() + "" + start.getYear();
+            var monthId = yearId + String.format("%02d", start.getMonthValue());
+            var dayName = start.getDayOfWeek();
+            if (!workingDays.contains(dayName)) {
+                continue;
+            }
+            DayEntity day = new DayEntity();
+            day.setDayOfTheMonth(start.getDayOfMonth());
+            day.setName(dayName);
+            day.setCenter(center);
+            day.setRemainingCapacity(center.getMaxCapacity());
+            day.setRemainingEveningCapacity(center.getEveningMaxCapacity());
+            var dayId = monthId + String.format("%02d", start.getDayOfMonth());
+            day.setId(Long.parseLong(dayId));
+            day.setMonthId(Long.parseLong(monthId));
+            dayEntities.add(day);
+
+        }
+        return dayEntities;
     }
 
-    public static String getDayName(int year, int month, int day) {
-        LocalDate date = LocalDate.of(year, month, day);
-        return date.getDayOfWeek().name();
+    public List<HourEntity> creatHours(Center center, LocalDate startDate, LocalDate endDate) {
+        List<HourEntity> response = creatHours(center, startDate, endDate, center.getStartWorkingHour(), center.getEndWorkingHour(), false);
+        response.addAll(creatHours(center, startDate, endDate, center.getEveningStartWorkingHour(), center.getEveningEndWorkingHour(), true));
+        return response;
     }
+
+    public List<HourEntity> creatHours(Center center, LocalDate startDate, LocalDate endDate, LocalTime startWorkingHour, LocalTime endWorkingHour, boolean evening) {
+        var workingDays = center.getWorkingDays().stream().map(WorkingDay::getName).toList();
+        List<HourEntity> hourEntities = new ArrayList<>();
+        for (var start = startDate; start.isBefore(endDate) || start.equals(endDate); start = start.plusDays(1)) {
+            var yearId = center.getId() + "" + start.getYear();
+            var monthId = yearId + String.format("%02d", start.getMonthValue());
+
+            var dayName = start.getDayOfWeek();
+            var dayId = monthId + String.format("%02d", start.getDayOfMonth());
+            if (!workingDays.contains(dayName)) {
+                continue;
+            }
+
+            for (var startTime = startWorkingHour; startTime.isBefore(endWorkingHour) || startTime.equals(endWorkingHour); startTime = startTime.plusHours(1)) {
+                var hour = new HourEntity();
+                hour.setTime(startTime);
+                hour.setCenter(center);
+                var hourId = dayId + String.format("%02d", startTime.getHour());
+                hour.setId(Long.parseLong(hourId));
+                hour.setRemainingEveningCapacity(evening ? center.getEveningMaxCapacity() : -1);
+                hour.setRemainingCapacity(evening ? -1 : center.getMaxCapacity());
+                hour.setDayId(Long.parseLong(dayId));
+                hourEntities.add(hour);
+            }
+
+        }
+        return hourEntities;
+
+    }
+
+//    private static boolean isBetween(LocalTime timeToCheck, LocalTime startTime, LocalTime endTime) {
+//        return !timeToCheck.isBefore(startTime) && !timeToCheck.isAfter(endTime);
+//    }
+//
+//    public static DayOfWeek getDayName(int year, int month, int day) {
+//        LocalDate date = LocalDate.of(year, month, day);
+//        return date.getDayOfWeek();
+//    }
 
     public String getMonthName(int month, int year) {
         LocalDate date = LocalDate.of(year, month, 1);

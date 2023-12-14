@@ -8,4 +8,5 @@ public class UpdateCapacityModel {
     @JsonIgnore
     private int centerId;
     private int capacity;
+    private boolean evening;
 }

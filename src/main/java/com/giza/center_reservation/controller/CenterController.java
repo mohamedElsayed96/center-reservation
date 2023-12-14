@@ -31,10 +31,10 @@ public class CenterController {
         return ResponseEntity.ok(centerService.updateCapacity(updateCapacityModel));
 
     }
-    @PutMapping("{centerId}/non_working_days")
-    public ResponseEntity<ResourceUpdated> updateNonWorkingDays(@PathVariable int centerId, @RequestBody UpdateCapacityModel updateCapacityModel){
+    @PutMapping("{centerId}/working_days")
+    public ResponseEntity<ResourceUpdated> updateWorkingDays(@PathVariable int centerId, @RequestBody UpdateWorkingDays updateCapacityModel){
         updateCapacityModel.setCenterId(centerId);
-        return ResponseEntity.ok(centerService.updateCapacity(updateCapacityModel));
+        return ResponseEntity.ok(centerService.updateWorkingDays(updateCapacityModel));
 
     }
 }

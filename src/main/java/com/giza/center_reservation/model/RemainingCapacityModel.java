@@ -10,4 +10,5 @@ import lombok.NoArgsConstructor;
 public class RemainingCapacityModel {
     private Long id;
     private int remainingCapacity;
+    private int eveningRemainingCapacity;
 }

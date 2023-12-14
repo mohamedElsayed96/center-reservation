@@ -22,19 +22,11 @@ public class HourEntity {
 
     private int remainingCapacity;
 
-    @ManyToOne
-    private DayEntity day;
-
-    @OneToMany(mappedBy = "hour")
-    private List<CenterReservation> centerReservations;
+    private int remainingEveningCapacity;
 
     @Column(name = "center_id", insertable = false, updatable = false)
     private int centerId;
 
-    @Column(name = "day_id", insertable = false, updatable = false)
-    private Long dayId;
-
-    public HourEntity(Long id) {
-        this.id = id;
-    }
+    @Column(name = "day_id")
+    private long dayId;
 }

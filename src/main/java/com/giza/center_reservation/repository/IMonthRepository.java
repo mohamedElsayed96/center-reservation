@@ -9,10 +9,10 @@ import org.springframework.stereotype.Repository;
 import java.util.Map;
 
 @Repository
-public interface IMonthRepository extends JpaRepository<MonthEntity, String> {
+public interface IMonthRepository extends JpaRepository<MonthEntity, Long> {
 
-    @Query("select new com.giza.center_reservation.model.RemainingCapacityModel(h.id , h.remainingCapacity) from MonthEntity h where h.id=:id")
-    RemainingCapacityModel findRemainingCapacity(Long id);
+    @Query("select new com.giza.center_reservation.model.RemainingCapacityModel(h.id , h.remainingCapacity, h.remainingEveningCapacity) from MonthEntity h where h.id=:id")
+    RemainingCapacityModel findRemainingCapacity(long id);
 
 
 }

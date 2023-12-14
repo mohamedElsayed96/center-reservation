@@ -1,14 +1,13 @@
 package com.giza.center_reservation.entities;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 
 @Entity
 @Data
@@ -23,13 +22,17 @@ public class Center {
 
     private int maxCapacity;
 
+    private int eveningMaxCapacity;
+
     private LocalTime startWorkingHour;
 
     private LocalTime endWorkingHour;
 
-    private LocalDate launchDate;
+    private LocalTime eveningStartWorkingHour;
+    private LocalTime eveningEndWorkingHour;
+    private LocalDate endLicenseDate;
+    private LocalDateTime createdDate;
+    @OneToMany(mappedBy = "center", cascade = CascadeType.ALL)
+    private List<WorkingDay> workingDays;
 
-    public Center(int id) {
-        this.id = id;
-    }
 }
