@@ -145,7 +145,7 @@ public class ReservationService {
 
         var hourIds = new ArrayList<Long>();
         //Duration validation
-        for (var start = dayReservationModel.getStartTime(); start.isBefore(dayReservationModel.getEndTime()) || start.equals(dayReservationModel.getEndTime()); start = start.plusHours(1)) {
+        for (var start = dayReservationModel.getStartTime(); start.isBefore(dayReservationModel.getEndTime()); start = start.plusHours(1)) {
             RemainingCapacityModel hourDb;
             if (dayReservationModel.isEvening()) {
                 LocalDateTime finalStart = start;

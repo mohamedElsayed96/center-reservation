@@ -4,6 +4,7 @@ import com.giza.center_reservation.entities.DayEntity;
 import com.giza.center_reservation.entities.MonthEntity;
 import com.giza.center_reservation.model.RemainingCapacityModel;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.query.Procedure;
 import org.springframework.stereotype.Repository;
@@ -21,6 +22,7 @@ public interface IDayRepository extends JpaRepository<DayEntity, Long> {
     @Query("select h.id from DayEntity h where h.monthId in :monthIds")
     List<Long> findRemainingCapacityForMonths(List<Long> monthIds);
 
+    @Modifying
     void deleteAllByCenterIdAndNameIn(int centerId, Set<DayOfWeek> name);
 
     @Procedure("update_tree_state_from_day_node")

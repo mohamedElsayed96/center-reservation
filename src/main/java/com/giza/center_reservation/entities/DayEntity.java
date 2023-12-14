@@ -16,14 +16,12 @@ public class DayEntity {
     private DayOfWeek name;
 
     private int dayOfTheMonth;
-    @ManyToOne
-    private  Center center;
 
     private int remainingCapacity;
 
     private int remainingEveningCapacity;
 
-    @Column(name = "center_id", insertable = false, updatable = false)
+    @Column(name = "center_id")
     private int centerId;
 
     @Column(name = "month_id")

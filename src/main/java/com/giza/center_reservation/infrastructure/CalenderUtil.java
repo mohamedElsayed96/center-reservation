@@ -12,11 +12,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-@Service
+
 public class CalenderUtil {
 
 
-    public List<MonthEntity> createMonths(Center center, LocalDate startDate, LocalDate endDate) {
+    public static List<MonthEntity> createMonths(Center center, LocalDate startDate, LocalDate endDate) {
 
 
 
@@ -29,7 +29,7 @@ public class CalenderUtil {
             month.setName(getMonthName(start.getMonthValue(), start.getYear()));
             month.setRemainingCapacity(center.getMaxCapacity());
             month.setRemainingEveningCapacity(center.getEveningMaxCapacity());
-            month.setCenter(center);
+            month.setCenterId(center.getId());
             month.setId(Long.parseLong(monthId));
             months.add(month);
         }
@@ -38,7 +38,7 @@ public class CalenderUtil {
         return months;
     }
 
-    public List<DayEntity> createDays(Center center, LocalDate startDate, LocalDate endDate) {
+    public static List<DayEntity> createDays(Center center, LocalDate startDate, LocalDate endDate) {
 
         var workingDays = center.getWorkingDays().stream().map(WorkingDay::getName).toList();
         List<DayEntity> dayEntities = new ArrayList<>();
@@ -52,7 +52,7 @@ public class CalenderUtil {
             DayEntity day = new DayEntity();
             day.setDayOfTheMonth(start.getDayOfMonth());
             day.setName(dayName);
-            day.setCenter(center);
+            day.setCenterId(center.getId());
             day.setRemainingCapacity(center.getMaxCapacity());
             day.setRemainingEveningCapacity(center.getEveningMaxCapacity());
             var dayId = monthId + String.format("%02d", start.getDayOfMonth());
@@ -64,13 +64,13 @@ public class CalenderUtil {
         return dayEntities;
     }
 
-    public List<HourEntity> creatHours(Center center, LocalDate startDate, LocalDate endDate) {
+    public static List<HourEntity> creatHours(Center center, LocalDate startDate, LocalDate endDate) {
         List<HourEntity> response = creatHours(center, startDate, endDate, center.getStartWorkingHour(), center.getEndWorkingHour(), false);
         response.addAll(creatHours(center, startDate, endDate, center.getEveningStartWorkingHour(), center.getEveningEndWorkingHour(), true));
         return response;
     }
 
-    public List<HourEntity> creatHours(Center center, LocalDate startDate, LocalDate endDate, LocalTime startWorkingHour, LocalTime endWorkingHour, boolean evening) {
+    public static List<HourEntity> creatHours(Center center, LocalDate startDate, LocalDate endDate, LocalTime startWorkingHour, LocalTime endWorkingHour, boolean evening) {
         var workingDays = center.getWorkingDays().stream().map(WorkingDay::getName).toList();
         List<HourEntity> hourEntities = new ArrayList<>();
         for (var start = startDate; start.isBefore(endDate) || start.equals(endDate); start = start.plusDays(1)) {
@@ -86,7 +86,7 @@ public class CalenderUtil {
             for (var startTime = startWorkingHour; startTime.isBefore(endWorkingHour) || startTime.equals(endWorkingHour); startTime = startTime.plusHours(1)) {
                 var hour = new HourEntity();
                 hour.setTime(startTime);
-                hour.setCenter(center);
+                hour.setCenterId(center.getId());
                 var hourId = dayId + String.format("%02d", startTime.getHour());
                 hour.setId(Long.parseLong(hourId));
                 hour.setRemainingEveningCapacity(evening ? center.getEveningMaxCapacity() : -1);
@@ -100,6 +100,14 @@ public class CalenderUtil {
 
     }
 
+    public static LocalDate getTheNextWorkingDate(LocalDate startDate, List<DayOfWeek> workingDays){
+
+        while (!workingDays.contains(startDate.getDayOfWeek())){
+            startDate = startDate.plusDays(1);
+        }
+       return startDate;
+    }
+
 //    private static boolean isBetween(LocalTime timeToCheck, LocalTime startTime, LocalTime endTime) {
 //        return !timeToCheck.isBefore(startTime) && !timeToCheck.isAfter(endTime);
 //    }
@@ -109,12 +117,12 @@ public class CalenderUtil {
 //        return date.getDayOfWeek();
 //    }
 
-    public String getMonthName(int month, int year) {
+    public static String getMonthName(int month, int year) {
         LocalDate date = LocalDate.of(year, month, 1);
         return date.getMonth().name();
     }
 
-    public int getDaysInMonth(int month, int year) {
+    public static int getDaysInMonth(int month, int year) {
         LocalDate date = LocalDate.of(year, month, 1);
         return date.lengthOfMonth();
     }
