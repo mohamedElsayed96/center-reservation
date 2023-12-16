@@ -1,6 +1,7 @@
 package com.giza.center_reservation.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.giza.center_reservation.enumeration.PackageType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -29,4 +30,5 @@ public class CenterCreationModel {
     @Schema(type = "string",  pattern = "HH:mm")
     private LocalTime eveningEndTime;
     private Set<DayOfWeek> workingDates;
+    private Set<PackageType> packages;
 }

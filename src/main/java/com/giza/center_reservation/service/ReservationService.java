@@ -1,5 +1,7 @@
 package com.giza.center_reservation.service;
 
+import com.giza.center_reservation.entities.Center;
+import com.giza.center_reservation.enumeration.PackageType;
 import com.giza.center_reservation.exception.RuntimeBusinessException;
 import com.giza.center_reservation.infrastructure.CalenderUtil;
 import com.giza.center_reservation.model.RemainingCapacityModel;
@@ -7,11 +9,13 @@ import com.giza.center_reservation.model.ReservationModel;
 import com.giza.center_reservation.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
@@ -36,7 +40,7 @@ public class ReservationService {
     @Transactional
     public String reserveHour(ReservationModel hourReservationModel) {
         var hours = checkHours(hourReservationModel);
-        saveHourReservation(hours, hourReservationModel.isEvening());
+        saveHourReservation(hours.getSecond(), hourReservationModel.isEvening());
         return "success";
 
 
@@ -45,7 +49,7 @@ public class ReservationService {
     @Transactional
     public String reserveDays(ReservationModel dayReservationModel) {
         var daysDb = checkDays(dayReservationModel);
-        saveDaysReservation(daysDb, dayReservationModel.isEvening());
+        saveDaysReservation(daysDb.getSecond(), daysDb.getFirst(),  dayReservationModel.isEvening());
         return "success";
 
     }
@@ -54,11 +58,11 @@ public class ReservationService {
     @Transactional
     public String reserveMonths(ReservationModel monthReservationModel) {
         var daysIds = checkMonths(monthReservationModel);
-        saveDaysReservation(daysIds, monthReservationModel.isEvening());
+        saveDaysReservation(daysIds.getSecond(), daysIds.getFirst(),  monthReservationModel.isEvening());
         return "success";
     }
 
-    private List<Long> checkMonths(ReservationModel monthReservationModel) {
+    private Pair<Center,List<Long>> checkMonths(ReservationModel monthReservationModel) {
         var center = centerRepository.findById(monthReservationModel.getCenterId()).orElseThrow(() -> new RuntimeBusinessException("Center ID Not found : " + monthReservationModel.getCenterId()));
         var originalStartDate = monthReservationModel.getStartTime().toLocalDate();
         var originalEndDate = monthReservationModel.getEndTime().toLocalDate();
@@ -75,7 +79,7 @@ public class ReservationService {
         var dayIds = new ArrayList<Long>();
         if (startDate.getDayOfMonth() > 1) {
             var tempEndDate = startDate.with(TemporalAdjusters.lastDayOfMonth());
-            dayIds.addAll(checkDays(new ReservationModel(monthReservationModel.getCenterId(), startDate.atTime(0, 0), tempEndDate.atTime(0, 0), monthReservationModel.getCustomerName(), monthReservationModel.isEvening())));
+            dayIds.addAll(checkDays(new ReservationModel(monthReservationModel.getCenterId(), startDate.atTime(0, 0), tempEndDate.atTime(0, 0), monthReservationModel.getCustomerName(), monthReservationModel.isEvening())).getSecond());
             startDate = tempEndDate.plusDays(1);
         }
         var monthIds = new ArrayList<Long>();
@@ -90,16 +94,16 @@ public class ReservationService {
             monthIds.add(monthDb.getId());
         }
         if (startDate.isBefore(originalEndDate)) {
-            dayIds.addAll(checkDays(new ReservationModel(monthReservationModel.getCenterId(), startDate.atTime(0, 0), originalEndDate.atTime(0, 0), monthReservationModel.getCustomerName(), monthReservationModel.isEvening())));
+            dayIds.addAll(checkDays(new ReservationModel(monthReservationModel.getCenterId(), startDate.atTime(0, 0), originalEndDate.atTime(0, 0), monthReservationModel.getCustomerName(), monthReservationModel.isEvening())).getSecond());
         }
         dayIds.addAll(dayRepository.findRemainingCapacityForMonths(monthIds));
-        return dayIds;
+        return Pair.of(center, dayIds);
 
 
     }
 
 
-    private List<Long> checkDays(ReservationModel dayReservationModel) {
+    private Pair<Center,List<Long>> checkDays(ReservationModel dayReservationModel) {
         var center = centerRepository.findById(dayReservationModel.getCenterId()).orElseThrow(() -> new RuntimeBusinessException("Center ID Not found : " + dayReservationModel.getCenterId()));
         var startDate = dayReservationModel.getStartTime().toLocalDate();
         var endDate = dayReservationModel.getEndTime().toLocalDate();
@@ -112,70 +116,84 @@ public class ReservationService {
             throw new RuntimeBusinessException("the start date " + startDate.format(DateTimeFormatter.ISO_DATE) + " is in the past");
         }
 
-        var response = new ArrayList<Long>();
+        long startId = CalenderUtil.getDayId(dayReservationModel.getStartTime(), dayReservationModel.getCenterId());
+        long endId = CalenderUtil.getDayId(dayReservationModel.getEndTime(), dayReservationModel.getCenterId());
 
-        for (var start = startDate; start.isBefore(endDate) || start.equals(endDate); start = start.plusDays(1)) {
-            var dayOfTheMonthDb = dayRepository.findRemainingCapacity(CalenderUtil.getDayId(start.atTime(0, 0), dayReservationModel.getCenterId()));
-            if (dayOfTheMonthDb == null) {
-                log.info("the selected day {} is not a working day ", start.format(DateTimeFormatter.ISO_DATE));
-                continue;
-            }
-            if (dayReservationModel.isEvening() && dayOfTheMonthDb.getEveningRemainingCapacity() == 0) {
-                throw new RuntimeBusinessException("No Enough Capacity in the selected day " + start.format(DateTimeFormatter.ISO_DATE));
-            }
-            if (!dayReservationModel.isEvening() && dayOfTheMonthDb.getRemainingCapacity() == 0) {
-                throw new RuntimeBusinessException("No Enough Capacity in the selected day " + start.format(DateTimeFormatter.ISO_DATE));
-            }
-            response.add(dayOfTheMonthDb.getId());
+        var result = dayRepository.checkAvailableCapacityInPeriod(startId, endId, dayReservationModel.isEvening());
+
+        if(result > 0){
+            throw new RuntimeBusinessException("No Enough Capacity in the selected period ");
         }
-        return response;
+
+        return Pair.of(center, dayRepository.selectHoursIdsInPeriod(startId, endId));
     }
 
-    private List<Long> checkHours(ReservationModel dayReservationModel) {
-        var center = centerRepository.findById(dayReservationModel.getCenterId()).orElseThrow(() -> new RuntimeBusinessException("Center ID Not found : " + dayReservationModel.getCenterId()));
-        if (dayReservationModel.getStartTime().toLocalDate().isAfter(center.getEndLicenseDate())) {
-            throw new RuntimeBusinessException("the selected day " + dayReservationModel.getStartTime().format(DateTimeFormatter.ISO_DATE) + " is after the licence end date");
+    private Pair<Center,List<Long>> checkHours(ReservationModel hoursReservationModel) {
+        var center = centerRepository.findById(hoursReservationModel.getCenterId()).orElseThrow(() -> new RuntimeBusinessException("Center ID Not found : " + hoursReservationModel.getCenterId()));
+        if (hoursReservationModel.getStartTime().toLocalDate().isAfter(center.getEndLicenseDate())) {
+            throw new RuntimeBusinessException("the selected day " + hoursReservationModel.getStartTime().format(DateTimeFormatter.ISO_DATE) + " is after the licence end date");
         }
-        if (dayReservationModel.getStartTime().isBefore(LocalDateTime.now())) {
-            throw new RuntimeBusinessException("the start date " + dayReservationModel.getStartTime().format(DateTimeFormatter.ISO_DATE_TIME) + " is in the past");
+        if (hoursReservationModel.getStartTime().isBefore(LocalDateTime.now())) {
+            throw new RuntimeBusinessException("the start date " + hoursReservationModel.getStartTime().format(DateTimeFormatter.ISO_DATE_TIME) + " is in the past");
         }
-        if (!dayReservationModel.getStartTime().toLocalDate().equals(dayReservationModel.getEndTime().toLocalDate())) {
-            throw new RuntimeBusinessException("the start time " + dayReservationModel.getStartTime().format(DateTimeFormatter.ISO_DATE_TIME) + " and end time " + dayReservationModel.getEndTime().format(DateTimeFormatter.ISO_DATE_TIME) + " is not in the same day.");
+        if (!hoursReservationModel.getStartTime().toLocalDate().equals(hoursReservationModel.getEndTime().toLocalDate())) {
+            throw new RuntimeBusinessException("the start time " + hoursReservationModel.getStartTime().format(DateTimeFormatter.ISO_DATE_TIME) + " and end time " + hoursReservationModel.getEndTime().format(DateTimeFormatter.ISO_DATE_TIME) + " is not in the same day.");
+        }
+        boolean inWorkingHours = isInWorkingHours(hoursReservationModel, center);
+
+        if(!inWorkingHours) {
+            throw new RuntimeBusinessException("the selected period Is not in the working hours");
+        }
+        long startId = CalenderUtil.getHourId(hoursReservationModel.getStartTime(), hoursReservationModel.getCenterId());
+        long endId = CalenderUtil.getHourId(hoursReservationModel.getEndTime(), hoursReservationModel.getCenterId());
+
+        var result = hourRepository.checkAvailableCapacityInPeriod(startId, endId, hoursReservationModel.isEvening());
+
+        if(result > 0){
+            throw new RuntimeBusinessException("No Enough Capacity in the selected period ");
         }
 
-        var hourIds = new ArrayList<Long>();
-        //Duration validation
-        for (var start = dayReservationModel.getStartTime(); start.isBefore(dayReservationModel.getEndTime()); start = start.plusHours(1)) {
-            RemainingCapacityModel hourDb;
-            if (dayReservationModel.isEvening()) {
-                LocalDateTime finalStart = start;
-                hourDb = hourRepository.findRemainingCapacityEvening(CalenderUtil.getHourId(start, dayReservationModel.getCenterId())).orElseThrow(() -> new RuntimeBusinessException("the selected hour " + finalStart.format(DateTimeFormatter.ISO_TIME) + " Is not a working hour"));
-                if (hourDb.getEveningRemainingCapacity() == 0) {
-                    throw new RuntimeBusinessException("No Enough Capacity in the selected hour " + start.format(DateTimeFormatter.ISO_TIME));
-                }
-            } else {
-                LocalDateTime finalStart = start;
-                hourDb = hourRepository.findRemainingCapacity(CalenderUtil.getHourId(start, dayReservationModel.getCenterId())).orElseThrow(() -> new RuntimeBusinessException("the selected hour " + finalStart.format(DateTimeFormatter.ISO_TIME) + " Is not a working hour"));
+        return Pair.of(center, hourRepository.selectHoursIdsInPeriod(startId, endId));
 
-                if (hourDb.getRemainingCapacity() == 0) {
-                    throw new RuntimeBusinessException("No Enough Capacity in the selected hour " + start.format(DateTimeFormatter.ISO_TIME));
-                }
-            }
-
-            hourIds.add(hourDb.getId());
-        }
-        return hourIds;
     }
 
-    private void saveDaysReservation(List<Long> daysIds, boolean evening) {
-        List<Long> hours;
-        if (evening) {
-            hours = hourRepository.findRemainingCapacityForDayEvening(daysIds);
+    private static boolean isInWorkingHours(ReservationModel hoursReservationModel, Center center) {
+        boolean isEvening = hoursReservationModel.isEvening();
+        LocalTime startTime = hoursReservationModel.getStartTime().toLocalTime();
+        LocalTime endTime = hoursReservationModel.getEndTime().toLocalTime();
+        LocalTime start;
+        LocalTime end;
 
+        if (isEvening) {
+            start = center.getEveningStartWorkingHour();
+            end = center.getEveningEndWorkingHour();
         } else {
-            hours = hourRepository.findRemainingCapacityForDay(daysIds);
+            start = center.getStartWorkingHour();
+            end = center.getEndWorkingHour();
         }
-        saveHourReservation(hours, evening);
+
+        return (startTime.isAfter(start) || startTime.equals(start)) && (endTime.isBefore(end) || endTime.equals(end));
+    }
+
+    private void saveDaysReservation(List<Long> daysIds, Center center, boolean evening) {
+        if(center.getPackages().stream().anyMatch(packageEntity -> packageEntity.getType().equals(PackageType.HOURS))){
+            List<Long> hours;
+            if (evening) {
+                hours = hourRepository.findRemainingCapacityForDayEvening(daysIds);
+
+            } else {
+                hours = hourRepository.findRemainingCapacityForDay(daysIds);
+            }
+            saveHourReservation(hours, evening);
+        }else{
+            if (evening) {
+                 dayRepository.decreaseEveningRemainingCapacity(daysIds);
+
+            } else {
+                dayRepository.decreaseRemainingCapacity(daysIds);
+            }
+        }
+
     }
 
     private void saveHourReservation(List<Long> hoursId, boolean evening) {

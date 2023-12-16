@@ -66,6 +66,7 @@ AS
 $function$
 BEGIN
     delete from calender_hour where day_id = old.id;
+    return OLD;
 
 END;
 $function$
@@ -144,7 +145,7 @@ end;
 $function$
 ;
 
-CREATE OR REPLACE PROCEDURE public.update_tree_state_from_day_node(_center_id int, start_id int8, evening boolean)
+CREATE OR REPLACE PROCEDURE public.update_tree_state_from_day_node(_center_id int, start_id int8, default_capacity int, evening boolean)
     LANGUAGE plpgsql
 AS
 $function$
@@ -161,11 +162,14 @@ BEGIN
                 where month_id = current_month_id
                 order by ch.remaining_evening_capacity
                 limit 1;
+                if minCapacity IS NULL then
+                    minCapacity = default_capacity;
+                end if;
                 update public.calender_month set remaining_evening_capacity = minCapacity where id = current_month_id;
             END LOOP;
     end if;
     if evening = false then
-        FOR current_month_id IN (SELECT id FROM public.calender_day where center_id = _center_id and id >= start_id)
+        FOR current_month_id IN (SELECT id FROM public.calender_month where center_id = _center_id and id >= start_id)
             LOOP
                 select ch.remaining_capacity
                 into minCapacity
@@ -173,6 +177,9 @@ BEGIN
                 where month_id = current_month_id
                 order by ch.remaining_capacity
                 limit 1;
+                if minCapacity IS NULL then
+                    minCapacity = default_capacity;
+                end if;
                 update public.calender_month set remaining_capacity = minCapacity where id = current_month_id;
             END LOOP;
     end if;

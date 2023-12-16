@@ -25,6 +25,11 @@ public interface IHourRepository extends JpaRepository<HourEntity, Long> {
     @Query("select h.id from HourEntity h where h.dayId in :dayIds and h.remainingEveningCapacity >= 0")
     List<Long> findRemainingCapacityForDayEvening(List<Long> dayIds);
 
+    @Query("select COUNT(*) from HourEntity h where h.id >= :startId and h.id <= :endId and ((:evening=true and h.remainingEveningCapacity =0) or (:evening=false and h.remainingCapacity =0 ))")
+    long checkAvailableCapacityInPeriod(long startId, long endId, boolean evening);
+
+    @Query("select h.id from HourEntity h where h.id >= :startId and h.id <= :endId")
+    List<Long> selectHoursIdsInPeriod(long startId, long endId);
 
     @Modifying
     @Query("update HourEntity h set h.remainingCapacity = h.remainingCapacity - 1 where h.id in :hourIds")

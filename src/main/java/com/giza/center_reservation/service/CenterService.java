@@ -2,7 +2,9 @@ package com.giza.center_reservation.service;
 
 import com.giza.center_reservation.entities.Center;
 import com.giza.center_reservation.entities.HourEntity;
+import com.giza.center_reservation.entities.PackageEntity;
 import com.giza.center_reservation.entities.WorkingDay;
+import com.giza.center_reservation.enumeration.PackageType;
 import com.giza.center_reservation.exception.RuntimeBusinessException;
 import com.giza.center_reservation.infrastructure.CalenderUtil;
 import com.giza.center_reservation.model.*;
@@ -16,10 +18,8 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -63,14 +63,27 @@ public class CenterService {
         center.setEveningEndWorkingHour(centerCreationModel.getEveningEndTime());
         center.setEveningMaxCapacity(centerCreationModel.getEveningMaxCapacity());
         center.setWorkingDays(centerCreationModel.getWorkingDates().stream().map(dayOfWeek -> new WorkingDay(dayOfWeek, center)).toList());
+        center.setPackages(centerCreationModel.getPackages().stream().map(packageType -> new PackageEntity(packageType, center)).toList());
         center.setEndLicenseDate(startDate.plusYears(numberOfAdditionalYears));
         centerRepository.save(center);
+        CompletableFuture<List<HourEntity>> hoursFuture = null;
+        List<CompletableFuture<?>> futures = new ArrayList<>();
+        if(centerCreationModel.getPackages().contains(PackageType.HOURS)){
+            hoursFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.creatHours(center, startDate, endDate));
+            futures.add(hoursFuture);
+        }
+
         var monthsFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.createMonths(center, startDate, endDate));
-        var hoursFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.creatHours(center, startDate, endDate));
+        futures.add(monthsFuture);
+
         var daysFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.createDays(center, startDate, endDate));
-        CompletableFuture.allOf(monthsFuture, daysFuture, hoursFuture).join();
+        futures.add(daysFuture);
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        if(hoursFuture != null){
+            hourRepository.saveAll(hoursFuture.get());
+        }
         monthRepository.saveAll(monthsFuture.get());
-        hourRepository.saveAll(hoursFuture.get());
         dayRepository.saveAll(daysFuture.get());
         return new ResourceCreated(center.getId());
     }
@@ -148,24 +161,41 @@ public class CenterService {
 
         var addedWorkingDays = new HashSet<>(updateWorkingHoursModel.getDays());
         addedWorkingDays.removeAll(oldWorkingDays);
+
+        center.updateWorkingDays(updateWorkingHoursModel.getDays());
+
+
+        if (!removedWorkingDays.isEmpty()) {
+            dayRepository.deleteRemovedWorkingDays(center.getId(), removedWorkingDays);
+            dayRepository.updateTreeState(center.getId(), CalenderUtil.getMonthId(LocalDate.now().atTime(0, 0), center.getId()), center.getEveningMaxCapacity(), true);
+            dayRepository.updateTreeState(center.getId(), CalenderUtil.getMonthId(LocalDate.now().atTime(0, 0), center.getId()), center.getMaxCapacity(), false);
+
+        }
+
         if (!addedWorkingDays.isEmpty()) {
             var startDate = LocalDate.now();
             var endDate = center.getEndLicenseDate();
-            var hoursFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.creatHours(center, startDate, endDate));
-            var daysFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.createDays(center, startDate, endDate));
-            CompletableFuture.allOf(hoursFuture, daysFuture).join();
+            CompletableFuture<List<HourEntity>> hoursFuture = null;
 
-            hourRepository.saveAll(hoursFuture.get());
+            var daysFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.createDays(center, startDate, endDate));
+
+            List<CompletableFuture<?>> futures = new ArrayList<>();
+            futures.add(daysFuture);
+
+            if(center.getPackages().stream().anyMatch(packageEntity -> packageEntity.getType().equals(PackageType.HOURS))){
+                hoursFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.creatHours(center, startDate, endDate));
+                futures.add(hoursFuture);
+            }
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+            if(hoursFuture != null){
+                hourRepository.saveAll(hoursFuture.get());
+            }
 
             dayRepository.saveAll(daysFuture.get());
         }
 
-        if (!removedWorkingDays.isEmpty()) {
-            dayRepository.deleteAllByCenterIdAndNameIn(center.getId(), removedWorkingDays);
-            dayRepository.updateTreeState(center.getId(), CalenderUtil.getMonthId(LocalDate.now().atTime(0, 0), center.getId()), true);
-            dayRepository.updateTreeState(center.getId(), CalenderUtil.getMonthId(LocalDate.now().atTime(0, 0), center.getId()), false);
-
-        }
+        centerRepository.save(center);
 
         return new ResourceUpdated(true);
 
