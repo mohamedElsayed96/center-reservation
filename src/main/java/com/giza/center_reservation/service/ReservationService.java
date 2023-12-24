@@ -4,9 +4,11 @@ import com.giza.center_reservation.entities.Center;
 import com.giza.center_reservation.enumeration.PackageType;
 import com.giza.center_reservation.exception.RuntimeBusinessException;
 import com.giza.center_reservation.infrastructure.CalenderUtil;
-import com.giza.center_reservation.model.RemainingCapacityModel;
 import com.giza.center_reservation.model.ReservationModel;
-import com.giza.center_reservation.repository.*;
+import com.giza.center_reservation.repository.ICenterRepository;
+import com.giza.center_reservation.repository.IDayRepository;
+import com.giza.center_reservation.repository.IHourRepository;
+import com.giza.center_reservation.repository.IMonthRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.data.util.Pair;
@@ -16,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
@@ -49,7 +50,7 @@ public class ReservationService {
     @Transactional
     public String reserveDays(ReservationModel dayReservationModel) {
         var daysDb = checkDays(dayReservationModel);
-        saveDaysReservation(daysDb.getSecond(), daysDb.getFirst(),  dayReservationModel.isEvening());
+        saveDaysReservation(daysDb.getSecond(), daysDb.getFirst(), dayReservationModel.isEvening());
         return "success";
 
     }
@@ -58,11 +59,11 @@ public class ReservationService {
     @Transactional
     public String reserveMonths(ReservationModel monthReservationModel) {
         var daysIds = checkMonths(monthReservationModel);
-        saveDaysReservation(daysIds.getSecond(), daysIds.getFirst(),  monthReservationModel.isEvening());
+        saveDaysReservation(daysIds.getSecond(), daysIds.getFirst(), monthReservationModel.isEvening());
         return "success";
     }
 
-    private Pair<Center,List<Long>> checkMonths(ReservationModel monthReservationModel) {
+    private Pair<Center, List<Long>> checkMonths(ReservationModel monthReservationModel) {
         var center = centerRepository.findById(monthReservationModel.getCenterId()).orElseThrow(() -> new RuntimeBusinessException("Center ID Not found : " + monthReservationModel.getCenterId()));
         var originalStartDate = monthReservationModel.getStartTime().toLocalDate();
         var originalEndDate = monthReservationModel.getEndTime().toLocalDate();
@@ -103,7 +104,7 @@ public class ReservationService {
     }
 
 
-    private Pair<Center,List<Long>> checkDays(ReservationModel dayReservationModel) {
+    private Pair<Center, List<Long>> checkDays(ReservationModel dayReservationModel) {
         var center = centerRepository.findById(dayReservationModel.getCenterId()).orElseThrow(() -> new RuntimeBusinessException("Center ID Not found : " + dayReservationModel.getCenterId()));
         var startDate = dayReservationModel.getStartTime().toLocalDate();
         var endDate = dayReservationModel.getEndTime().toLocalDate();
@@ -121,14 +122,14 @@ public class ReservationService {
 
         var result = dayRepository.checkAvailableCapacityInPeriod(startId, endId, dayReservationModel.isEvening());
 
-        if(result > 0){
+        if (result > 0) {
             throw new RuntimeBusinessException("No Enough Capacity in the selected period ");
         }
 
         return Pair.of(center, dayRepository.selectHoursIdsInPeriod(startId, endId));
     }
 
-    private Pair<Center,List<Long>> checkHours(ReservationModel hoursReservationModel) {
+    private Pair<Center, List<Long>> checkHours(ReservationModel hoursReservationModel) {
         var center = centerRepository.findById(hoursReservationModel.getCenterId()).orElseThrow(() -> new RuntimeBusinessException("Center ID Not found : " + hoursReservationModel.getCenterId()));
         if (hoursReservationModel.getStartTime().toLocalDate().isAfter(center.getEndLicenseDate())) {
             throw new RuntimeBusinessException("the selected day " + hoursReservationModel.getStartTime().format(DateTimeFormatter.ISO_DATE) + " is after the licence end date");
@@ -141,7 +142,7 @@ public class ReservationService {
         }
         boolean inWorkingHours = isInWorkingHours(hoursReservationModel, center);
 
-        if(!inWorkingHours) {
+        if (!inWorkingHours) {
             throw new RuntimeBusinessException("the selected period Is not in the working hours");
         }
         long startId = CalenderUtil.getHourId(hoursReservationModel.getStartTime(), hoursReservationModel.getCenterId());
@@ -149,7 +150,7 @@ public class ReservationService {
 
         var result = hourRepository.checkAvailableCapacityInPeriod(startId, endId, hoursReservationModel.isEvening());
 
-        if(result > 0){
+        if (result > 0) {
             throw new RuntimeBusinessException("No Enough Capacity in the selected period ");
         }
 
@@ -176,7 +177,7 @@ public class ReservationService {
     }
 
     private void saveDaysReservation(List<Long> daysIds, Center center, boolean evening) {
-        if(center.getPackages().stream().anyMatch(packageEntity -> packageEntity.getType().equals(PackageType.HOURS))){
+        if (center.getPackages().stream().anyMatch(packageEntity -> packageEntity.getType().equals(PackageType.HOURS))) {
             List<Long> hours;
             if (evening) {
                 hours = hourRepository.findRemainingCapacityForDayEvening(daysIds);
@@ -185,9 +186,9 @@ public class ReservationService {
                 hours = hourRepository.findRemainingCapacityForDay(daysIds);
             }
             saveHourReservation(hours, evening);
-        }else{
+        } else {
             if (evening) {
-                 dayRepository.decreaseEveningRemainingCapacity(daysIds);
+                dayRepository.decreaseEveningRemainingCapacity(daysIds);
 
             } else {
                 dayRepository.decreaseRemainingCapacity(daysIds);

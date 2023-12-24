@@ -1,8 +1,6 @@
 package com.giza.center_reservation.infrastructure;
 
 import com.giza.center_reservation.entities.*;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -10,10 +8,16 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-
+/**
+ * Author: Mohamed Eid, mohamed.eid@gizasystems.com
+ * Date: Dec, 2023,
+ * Description: Calendar Utility class.
+ */
 
 public class CalenderUtil {
+    private CalenderUtil() {
+    }
+
 
 
     public static List<MonthEntity> createMonths(Center center, LocalDate startDate, LocalDate endDate) {
@@ -108,21 +112,21 @@ public class CalenderUtil {
        return startDate;
     }
 
-//    private static boolean isBetween(LocalTime timeToCheck, LocalTime startTime, LocalTime endTime) {
-//        return !timeToCheck.isBefore(startTime) && !timeToCheck.isAfter(endTime);
-//    }
-//
-//    public static DayOfWeek getDayName(int year, int month, int day) {
-//        LocalDate date = LocalDate.of(year, month, day);
-//        return date.getDayOfWeek();
-//    }
+    public static boolean isBetween(LocalDateTime timeToCheck, LocalDateTime startTime, LocalDateTime endTime) {
+        return !timeToCheck.isBefore(startTime) && !timeToCheck.isAfter(endTime);
+    }
+
+    public static DayOfWeek getDayName(int year, int month, int day) {
+        LocalDate date = LocalDate.of(year, month, day);
+        return date.getDayOfWeek();
+    }
 
     public static String getMonthName(int month, int year) {
         LocalDate date = LocalDate.of(year, month, 1);
         return date.getMonth().name();
     }
 
-    public static int getDaysInMonth(int month, int year) {
+    public static int getNumberOfDaysInMonth(int month, int year) {
         LocalDate date = LocalDate.of(year, month, 1);
         return date.lengthOfMonth();
     }

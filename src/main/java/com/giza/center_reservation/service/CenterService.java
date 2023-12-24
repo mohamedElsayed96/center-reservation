@@ -68,7 +68,7 @@ public class CenterService {
         centerRepository.save(center);
         CompletableFuture<List<HourEntity>> hoursFuture = null;
         List<CompletableFuture<?>> futures = new ArrayList<>();
-        if(centerCreationModel.getPackages().contains(PackageType.HOURS)){
+        if (centerCreationModel.getPackages().contains(PackageType.HOURS)) {
             hoursFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.creatHours(center, startDate, endDate));
             futures.add(hoursFuture);
         }
@@ -80,13 +80,14 @@ public class CenterService {
         futures.add(daysFuture);
 
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        if(hoursFuture != null){
+        if (hoursFuture != null) {
             hourRepository.saveAll(hoursFuture.get());
         }
         monthRepository.saveAll(monthsFuture.get());
         dayRepository.saveAll(daysFuture.get());
         return new ResourceCreated(center.getId());
     }
+
     @Transactional
     public ResourceUpdated updateCapacity(UpdateCapacityModel updateCapacityModel) {
         var center = centerRepository.findById(updateCapacityModel.getCenterId()).orElseThrow(() -> new RuntimeBusinessException("Center ID Not found : " + updateCapacityModel.getCenterId()));
@@ -182,13 +183,13 @@ public class CenterService {
             List<CompletableFuture<?>> futures = new ArrayList<>();
             futures.add(daysFuture);
 
-            if(center.getPackages().stream().anyMatch(packageEntity -> packageEntity.getType().equals(PackageType.HOURS))){
+            if (center.getPackages().stream().anyMatch(packageEntity -> packageEntity.getType().equals(PackageType.HOURS))) {
                 hoursFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.creatHours(center, startDate, endDate));
                 futures.add(hoursFuture);
             }
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
-            if(hoursFuture != null){
+            if (hoursFuture != null) {
                 hourRepository.saveAll(hoursFuture.get());
             }
 
