@@ -15,24 +15,7 @@ CREATE TABLE calender_day (
                               CONSTRAINT calender_day_name_check CHECK (((name)::text = ANY ((ARRAY['MONDAY'::character varying, 'TUESDAY'::character varying, 'WEDNESDAY'::character varying, 'THURSDAY'::character varying, 'FRIDAY'::character varying, 'SATURDAY'::character varying, 'SUNDAY'::character varying])::text[]))),
                               CONSTRAINT calender_day_pkey PRIMARY KEY (id)
 );
-CREATE INDEX calender_day_center_id_idx ON public.calender_day USING btree (center_id);
-CREATE INDEX calender_day_month_id_idx ON public.calender_day USING btree (month_id);
-CREATE INDEX calender_day_name_idx ON public.calender_day USING btree (name);
 
--- Table Triggers
-
-create trigger update_month_remaining_capacity_trigger after
-    update
-        of remaining_capacity on
-    public.calender_day for each row execute function update_month_remaining_capacity();
-create trigger update_month_remaining_evening_capacity_trigger after
-    update
-        of remaining_evening_capacity on
-    public.calender_day for each row execute function update_month_remaining_capacity();
-create trigger delete_hour_of_day_trigger after
-    delete
-    on
-        public.calender_day for each row execute function delete_hour_of_the_day();
 
 
 -- public.calender_hour definition
@@ -50,19 +33,11 @@ CREATE TABLE calender_hour (
                                id int8 NOT NULL,
                                CONSTRAINT calender_hour_pkey PRIMARY KEY (id)
 );
-CREATE INDEX calender_hour_center_id_idx ON public.calender_hour USING btree (center_id);
-CREATE INDEX calender_hour_day_id_idx ON public.calender_hour USING btree (day_id);
+
 
 -- Table Triggers
 
-create trigger update_day_remaining_capacity_trigger after
-    update
-        of remaining_capacity on
-    public.calender_hour for each row execute function update_day_remaining_capacity();
-create trigger update_day_remaining_evening_capacity_trigger after
-    update
-        of remaining_evening_capacity on
-    public.calender_hour for each row execute function update_day_remaining_capacity();
+
 
 
 -- public.calender_month definition
@@ -79,7 +54,7 @@ CREATE TABLE calender_month (
                                 "name" varchar(255) NULL,
                                 CONSTRAINT calender_month_pkey PRIMARY KEY (id)
 );
-CREATE INDEX calender_month_center_id_idx ON public.calender_month USING btree (center_id);
+
 
 
 -- public.center definition
