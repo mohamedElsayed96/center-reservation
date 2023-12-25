@@ -42,9 +42,9 @@ public class CalenderUtil {
         return months;
     }
 
-    public static List<DayEntity> createDays(Center center, LocalDate startDate, LocalDate endDate) {
+    public static List<DayEntity> createDays(Center center, LocalDate startDate, LocalDate endDate, List<DayOfWeek> workingDays) {
 
-        var workingDays = center.getWorkingDays().stream().map(WorkingDay::getName).toList();
+
         List<DayEntity> dayEntities = new ArrayList<>();
         for (var start = startDate; start.isBefore(endDate) || start.equals(endDate); start = start.plusDays(1)) {
             var yearId = center.getId() + "" + start.getYear();
@@ -68,14 +68,13 @@ public class CalenderUtil {
         return dayEntities;
     }
 
-    public static List<HourEntity> creatHours(Center center, LocalDate startDate, LocalDate endDate) {
-        List<HourEntity> response = creatHours(center, startDate, endDate, center.getStartWorkingHour(), center.getEndWorkingHour(), false);
-        response.addAll(creatHours(center, startDate, endDate, center.getEveningStartWorkingHour(), center.getEveningEndWorkingHour(), true));
+    public static List<HourEntity> creatHours(Center center, LocalDate startDate, LocalDate endDate, List<DayOfWeek> workingDays) {
+        List<HourEntity> response = creatHours(center, startDate, endDate, center.getStartWorkingHour(), center.getEndWorkingHour(), workingDays,false);
+        response.addAll(creatHours(center, startDate, endDate, center.getEveningStartWorkingHour(), center.getEveningEndWorkingHour(), workingDays,true));
         return response;
     }
 
-    public static List<HourEntity> creatHours(Center center, LocalDate startDate, LocalDate endDate, LocalTime startWorkingHour, LocalTime endWorkingHour, boolean evening) {
-        var workingDays = center.getWorkingDays().stream().map(WorkingDay::getName).toList();
+    public static List<HourEntity> creatHours(Center center, LocalDate startDate, LocalDate endDate, LocalTime startWorkingHour, LocalTime endWorkingHour, List<DayOfWeek> workingDays  ,boolean evening) {
         List<HourEntity> hourEntities = new ArrayList<>();
         for (var start = startDate; start.isBefore(endDate) || start.equals(endDate); start = start.plusDays(1)) {
             var yearId = center.getId() + "" + start.getYear();

@@ -84,7 +84,7 @@ public class ReservationService {
             startDate = tempEndDate.plusDays(1);
         }
         var monthIds = new ArrayList<Long>();
-        for (var start = startDate; start.isBefore(monthEndDate) || start.equals(monthEndDate); start = start.plusMonths(1)) {
+        for (var start = startDate; start.isBefore(monthEndDate); start = start.plusMonths(1)) {
             var monthDb = monthRepository.findRemainingCapacity(CalenderUtil.getMonthId(start.atTime(0, 0, 0), monthReservationModel.getCenterId()));
             if (!monthReservationModel.isEvening() && monthDb.getRemainingCapacity() <= 0) {
                 throw new RuntimeBusinessException("No Enough Capacity in the selected month " + start.format(DateTimeFormatter.ISO_DATE));
@@ -93,8 +93,9 @@ public class ReservationService {
                 throw new RuntimeBusinessException("No Enough Capacity in the selected month " + start.format(DateTimeFormatter.ISO_DATE));
             }
             monthIds.add(monthDb.getId());
+            startDate = startDate.plusMonths(1);
         }
-        if (startDate.isBefore(originalEndDate)) {
+        if (startDate.isBefore(originalEndDate) || startDate.equals(originalEndDate) ) {
             dayIds.addAll(checkDays(new ReservationModel(monthReservationModel.getCenterId(), startDate.atTime(0, 0), originalEndDate.atTime(0, 0), monthReservationModel.getCustomerName(), monthReservationModel.isEvening())).getSecond());
         }
         dayIds.addAll(dayRepository.findRemainingCapacityForMonths(monthIds));
@@ -126,7 +127,7 @@ public class ReservationService {
             throw new RuntimeBusinessException("No Enough Capacity in the selected period ");
         }
 
-        return Pair.of(center, dayRepository.selectHoursIdsInPeriod(startId, endId));
+        return Pair.of(center, dayRepository.selectDaysIdsInPeriod(startId, endId));
     }
 
     private Pair<Center, List<Long>> checkHours(ReservationModel hoursReservationModel) {
@@ -146,7 +147,7 @@ public class ReservationService {
             throw new RuntimeBusinessException("the selected period Is not in the working hours");
         }
         long startId = CalenderUtil.getHourId(hoursReservationModel.getStartTime(), hoursReservationModel.getCenterId());
-        long endId = CalenderUtil.getHourId(hoursReservationModel.getEndTime(), hoursReservationModel.getCenterId());
+        long endId = CalenderUtil.getHourId(hoursReservationModel.getEndTime().minusHours(1), hoursReservationModel.getCenterId());
 
         var result = hourRepository.checkAvailableCapacityInPeriod(startId, endId, hoursReservationModel.isEvening());
 

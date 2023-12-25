@@ -68,15 +68,16 @@ public class CenterService {
         centerRepository.save(center);
         CompletableFuture<List<HourEntity>> hoursFuture = null;
         List<CompletableFuture<?>> futures = new ArrayList<>();
+        var workingDays = center.getWorkingDays().stream().map(WorkingDay::getName).toList();
+
         if (centerCreationModel.getPackages().contains(PackageType.HOURS)) {
-            hoursFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.creatHours(center, startDate, endDate));
+            hoursFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.creatHours(center, startDate, endDate, workingDays));
             futures.add(hoursFuture);
         }
 
         var monthsFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.createMonths(center, startDate, endDate));
         futures.add(monthsFuture);
-
-        var daysFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.createDays(center, startDate, endDate));
+        var daysFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.createDays(center, startDate, endDate, workingDays));
         futures.add(daysFuture);
 
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
@@ -94,11 +95,21 @@ public class CenterService {
         if (!updateCapacityModel.isEvening()) {
             var deltaCapacity = updateCapacityModel.getCapacity() - center.getMaxCapacity();
             center.setMaxCapacity(updateCapacityModel.getCapacity());
-            hourRepository.updateCapacity(center.getId(), deltaCapacity);
+            if (center.getPackages().stream().anyMatch(packageEntity -> packageEntity.getType().equals(PackageType.HOURS))){
+                hourRepository.updateCapacity(center.getId(), deltaCapacity);
+
+            }else {
+                dayRepository.updateCapacity(center.getId(), deltaCapacity);
+            }
         } else {
             var deltaCapacity = updateCapacityModel.getCapacity() - center.getEveningMaxCapacity();
             center.setEveningMaxCapacity(updateCapacityModel.getCapacity());
-            hourRepository.updateCapacityEvening(center.getId(), deltaCapacity);
+            if (center.getPackages().stream().anyMatch(packageEntity -> packageEntity.getType().equals(PackageType.HOURS))){
+                hourRepository.updateCapacityEvening(center.getId(), deltaCapacity);
+
+            }else {
+                dayRepository.updateCapacityEvening(center.getId(), deltaCapacity);
+            }
         }
         centerRepository.save(center);
         return new ResourceUpdated(true);
@@ -136,8 +147,9 @@ public class CenterService {
         intervalsToBeAdded.forEach(localTimeLocalTimePair -> completableFutures.add(CompletableFuture.runAsync(() -> {
             var startDate = LocalDate.now();
             var endDate = center.getEndLicenseDate();
+            var workingDays = center.getWorkingDays().stream().map(WorkingDay::getName).toList();
 
-            hourEntities.addAll(CalenderUtil.creatHours(center, startDate, endDate, localTimeLocalTimePair.getFirst(), localTimeLocalTimePair.getSecond(), updateWorkingHoursModel.isEvening()));
+            hourEntities.addAll(CalenderUtil.creatHours(center, startDate, endDate, localTimeLocalTimePair.getFirst(), localTimeLocalTimePair.getSecond(), workingDays, updateWorkingHoursModel.isEvening()));
 
         })));
         CompletableFuture.allOf(completableFutures.toArray(new CompletableFuture[0])).join();
@@ -178,13 +190,13 @@ public class CenterService {
             var endDate = center.getEndLicenseDate();
             CompletableFuture<List<HourEntity>> hoursFuture = null;
 
-            var daysFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.createDays(center, startDate, endDate));
+            var daysFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.createDays(center, startDate, endDate, addedWorkingDays.stream().toList()));
 
             List<CompletableFuture<?>> futures = new ArrayList<>();
             futures.add(daysFuture);
 
             if (center.getPackages().stream().anyMatch(packageEntity -> packageEntity.getType().equals(PackageType.HOURS))) {
-                hoursFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.creatHours(center, startDate, endDate));
+                hoursFuture = CompletableFuture.supplyAsync(() -> CalenderUtil.creatHours(center, startDate, endDate, addedWorkingDays.stream().toList()));
                 futures.add(hoursFuture);
             }
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();

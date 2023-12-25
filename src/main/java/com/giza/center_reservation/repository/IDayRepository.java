@@ -31,7 +31,7 @@ public interface IDayRepository extends JpaRepository<DayEntity, Long> {
     long checkAvailableCapacityInPeriod(long startId, long endId, boolean evening);
 
     @Query("select h.id from DayEntity h where h.id >= :startId and h.id <= :endId")
-    List<Long> selectHoursIdsInPeriod(long startId, long endId);
+    List<Long> selectDaysIdsInPeriod(long startId, long endId);
 
 
     @Modifying
@@ -41,4 +41,12 @@ public interface IDayRepository extends JpaRepository<DayEntity, Long> {
     @Modifying
     @Query("update DayEntity h set h.remainingEveningCapacity = h.remainingEveningCapacity - 1 where h.id in :dayIds")
     void decreaseEveningRemainingCapacity(List<Long> dayIds);
+
+    @Modifying
+    @Query("update DayEntity h set h.remainingCapacity = (case when h.remainingCapacity + :delta < 0 then 0 else (h.remainingCapacity + :delta) end) where h.centerId = :centerId and h.remainingCapacity >= 0")
+    void updateCapacity(int centerId, int delta);
+
+    @Modifying
+    @Query("update DayEntity h set h.remainingEveningCapacity = (case when h.remainingEveningCapacity + :delta < 0 then 0 else (h.remainingEveningCapacity + :delta) end) where h.centerId = :centerId and  h.remainingEveningCapacity >= 0")
+    void updateCapacityEvening(int centerId, int delta);
 }
